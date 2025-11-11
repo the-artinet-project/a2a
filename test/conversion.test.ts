@@ -21,15 +21,17 @@ import {
   RequestContext,
   ExecutionEventBus,
 } from "@a2a-js/sdk/server";
-import { convertExecutor } from "../src/index.js";
+import a2a, { convertExecutor } from "../src/index.js";
 jest.setTimeout(10000);
+a2a({ apiKey: "your-api-key" })
+  .ai("You are a helpful assistant.")
+  .createAgent({ agentCard: "Test Agent" });
 class TestExecutor implements AgentExecutor {
   private cancelledTasks = new Set<string>();
   public async cancelTask(
     taskId: string,
     eventBus: ExecutionEventBus
   ): Promise<void> {
-    console.log(`[Executor] Received cancellation request for task: ${taskId}`);
     this.cancelledTasks.add(taskId);
   }
 
@@ -83,12 +85,8 @@ class TestExecutor implements AgentExecutor {
         default:
           break;
       }
-      console.log(`[Executor] Working on step ${i + 1} for task ${taskId}...`);
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-    console.log(
-      `[Executor] Task ${taskId} finished all steps without cancellation.`
-    );
 
     // If not canceled, finish the work and publish the completed state.
     const finalUpdate: TaskStatusUpdateEvent = {

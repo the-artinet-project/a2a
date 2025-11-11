@@ -1,7 +1,7 @@
 {
-  "name": "@artinet/a2a",
-  "version": "0.0.1",
-  "description": "An easy to use SDK for creating Agent2Agent (A2A) agents.",
+  "name": "easy-a2a",
+  "version": "0.0.2",
+  "description": "An easy to use library for building Agent2Agent (A2A) agents backed by OpenAI APIs.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -45,10 +45,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/the-artinet-project/a2a"
+    "url": "https://github.com/the-artinet-project/easy-a2a"
   },
   "bugs": {
-    "url": "https://github.com/the-artinet-project/a2a/issues"
+    "url": "https://github.com/the-artinet-project/easy-a2a/issues"
   },
   "homepage": "https://artinet.io",
   "dependencies": {

@@ -1,109 +1,242 @@
 # easy-a2a
 
-An easy-to-use SDK for creating Agent2Agent (A2A) agents with any OpenAI-compatible API.
+**easy-a2a** makes building A2A agents simple.
 
-## Overview
+Build AI agents that can work together. Connect your agents to any [OpenAI-compatible API](https://github.com/openai/openai-openapi) (OpenAI, HuggingFace, OpenRouter, local models, etc.) and let them collaborate to solve tasks.
 
-`@artinet/a2a` provides a fluent builder for constructing multi-step AI agents with type-safe composition and automatic execution orchestration. Build agents that can communicate with other agents and easily manage complex multi-agent interactions.
+**easy-a2a combines the A2A protocol with the OpenAI API speficication,** so you can quickly build AI assistants that can communicate with each other.
 
-## Installation
+The [Agent2Agent Protocol (A2A)](https://a2a-protocol.org/latest) is a standardized way to send messages and share context between AI Agents.
 
-```bash
-npm install @artinet/a2a
-```
-
-## Quick Start
+## Quickstart
 
 ```typescript
-import { AIAgentBuilder } from "@artinet/a2a";
+import a2a from "easy-a2a";
 
-// Create an AI agent with OpenAI
-const agent = AIAgentBuilder({ apiKey: "your-api-key" })
+const agent = a2a({
+  baseURL: "https://your-api.com/api/v1",
+  apiKey: "your-api-key",
+})
   .ai("You are a helpful assistant.")
   .createAgent({
     agentCard: "MyAgent",
   });
 
-// Send a message
 const result = await agent.sendMessage("Hello!");
+```
+
+## Installation
+
+```bash
+npm install easy-a2a
 ```
 
 ## Features
 
-- **Fluent Builder API**: Define your agents behaviour with chainable methods
-- **Multi-Agent Orchestration**: Connect to other agents via the [`AgentRelay`](https://github.com/the-artinet-project/agent-relay).
-- **Tool Integration**: Automatically convert A2A agents into OpenAI-compatible function tools
-- **Executor Conversion**: Convert A2A executors into AgentEngine for advanced workflows
+- **Multi-Agent**: Easily connect to other agents
+- **Build Fast**: Define your agents behaviour with chainable methods
 
-## Multi-Agent Example
+## Table of Contents
+
+- [easy-a2a](#easy-a2a)
+  - [Quickstart](#quickstart)
+  - [Installation](#installation)
+  - [Features](#features)
+  - [Table of Contents](#table-of-contents)
+  - [Examples:](#examples)
+    - [Multi-Agent:](#multi-agent)
+    - [Workflow Builder:](#workflow-builder)
+    - [Customization:](#customization)
+    - [Deployment:](#deployment)
+  - [Core Classes \& Functions](#core-classes--functions)
+    - [`a2a(client, agents?)`](#a2aclient-agents)
+      - [`.ai(body, options?)`](#aibody-options)
+    - [Steps](#steps)
+      - [`.text`](#text)
+      - [`.file`](#file)
+      - [`.data`](#data)
+    - [`convertExecutor(executor)`](#convertexecutorexecutor)
+  - [License](#license)
+  - [Resources](#resources)
+
+## Examples:
+
+### Multi-Agent:
+
+Create Multiple AI Agents in just a few lines of code. Reuse the same OpenAI client to avoid boilerplate.
 
 ```typescript
-import { AgentBuilder, getContent } from "@artinet/sdk";
-import { AIAgentBuilder } from "@artinet/a2a";
+import a2a, { getContent } from "easy-a2a";
+import { OpenAI } from "openAi";
 
-// Create helper agents
-const echoAgent = AgentBuilder()
-  .text(({ content }) => content ?? "No content")
-  .createAgent({ agentCard: "EchoAgent" });
+// Reuse the same client
+const client = new OpenAI({ apiKey: "your-api-key" });
 
-const testAgent = AgentBuilder()
-  .text(({ content }) => "You have successfully reached the test agent.")
-  .createAgent({ agentCard: "TestAgent" });
+const cooking_agent = a2a(client)
+  .ai("You're a helpful assistant that makes great cooking recomendations.")
+  .createAgent({ agentCard: "Cooking Agent" });
 
-// Expose them to your AI Agent
-const aiAgent = AIAgentBuilder(
-  { apiKey: "your-api-key" },
-  {
-    callerId: "main-agent",
-    agents: new Map([
-      ["echo-agent", echoAgent],
-      ["test-agent", testAgent],
-    ]),
-  }
-)
-  .text(() => "Message Recieved")
-  .ai("Use your agents to fulfill the request.")
+const hotel_agent = a2a(client)
+  .ai("You are a helpful assistant that makes great hotel recomendations")
+  .createAgent({ agentCard: "Hotel Agent" });
+
+// Build an agent that can call other agents
+const agent = a2a(client, {
+  callerId: "main-agent",
+  agents: new Map([
+    ["cooking-agent", cooking_agent],
+    ["hotel-agent", hotel_agent],
+  ]),
+})
+  .ai("Use your agents to fulfill the users request.")
   .createAgent({ agentCard: "MainAgent" });
 
-// The AI agent can now call or be called by other A2A agents
-console.log(
-  getContent(
-    await aiAgent.sendMessage("Call the test agent and tell me what it says")
+// Use your agent with the A2A protocol
+await agent.sendMessage("What should I have for dinner tomorrow night?");
+```
+
+---
+
+### Workflow Builder:
+
+Add steps to process information and keep the caller updated.
+
+```typescript
+const agent = a2a({ apiKey: "your-api-key" })
+  .text(({ content: userMessage })=> `Message Recieved: ${userMessage}`)
+  .ai("Use the least amount of tokens to process the users.") // The ChatCompletion is passed to the next step
+  .text(({ args, contextId })=> {
+    const completion = args[0];
+    if (completion.usage?.total_tokens > 1000) {
+      return `You've run out of tokens for this request: ${contextId}`;
+    }
+    ...
+  })
+  .createAgent({ agentCard: "MyAgent" });
+```
+
+---
+
+### Customization:
+
+Customize each `.ai` call with familiar interfaces ( i.e. `OpenAI.ChatCompletionCreateParamsNonStreaming`, `OpenAI.RequestOptions`)
+
+```typescript
+const agent = a2a({ apiKey: "your-api-key" })
+  .ai(
+    {
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "Say Hello World! to every new user" },
+      ],
+      max_completion_tokens: 5000,
+      tools: ...
+    },
+    {
+      maxRetries: 2,
+      includeHistory: false,
+    }
   )
-);
+  .createAgent({ agentCard: "MyAgent" });
 ```
 
-**Response:**
+---
 
-```bash
-I have access to the test agent and sent a message to it. The test agent responded, saying:
+### Deployment:
 
-"You have successfully reached the test agent."
+Quickly turn your agent into an [`Express`](https://github.com/expressjs/express) server so it can receive A2A requests from anywhere.
+
+```typescript
+import { createAgentServer } from "easy-a2a";
+
+const { app } = createAgentServer({
+  agent: agent,
+  basePath: "/a2a",
+});
+
+app.listen(3000, () => {
+  console.log("MyAgent is running on http://localhost:3000/a2a");
+});
 ```
 
-## API
+## Core Classes & Functions
 
-### `AIAgentBuilder(client, agents?)`
+### `a2a(client, agents?)`
 
-Creates a new agent builder with an OpenAI client and optional agent relay.
+Creates a new agent builder with an OpenAI client and additional agents.
 
 **Parameters:**
 
-- `client`: OpenAI instance or ClientOptions
-- `agents?`: `AgentRelay`, `AgentRelayConfig`, or `A2AClient`, `Agent` for multi-agent communication
+- `client`: [`OpenAI`](https://github.com/openai/openai-node/tree/master?tab=readme-ov-file) instance or `OpenAI.ClientOptions`
+- `agents?`: Accepts an [`AgentRelay`](https://github.com/the-artinet-project/agent-relay), [`AgentRelayConfig`](https://github.com/the-artinet-project/agent-relay?tab=readme-ov-file#configuration-options), an [`A2AClient`](https://github.com/the-artinet-project/artinet-sdk?tab=readme-ov-file#client), or another [`Agent`](https://github.com/the-artinet-project/artinet-sdk?tab=readme-ov-file#client) instance for multi-agent communication.
 
-### `.ai(body, options?)`
+#### `.ai(body, options?)`
 
-Adds an AI step to the agent workflow.
+Adds a step to the agents workflow that triggers a call to the target API.
 
 **Parameters:**
 
-- `body`: System prompt string or full `ChatCompletionCreateParams`
-- `options?`: Request options including `history`/`args`/`content` inclusion settings
+- `body`: System prompt string or full `OpenAI.ChatCompletionCreateParams`
+- `options?`: `OpenAI.RequestOptions` including the following flags for creating the `messages` array based to the llm:
+  - `includeHistory`:`boolean`: Include the `Task.history` as `{ role: "assistant" | "user"; content: string; }[]`.
+  - `includeArgs`:`boolean`: Include the `args` (see below) as `{ role: "system" as const, content: JSON.stringify(args) }`.
+  - `includeContent`:`boolean`: Include the `content` (see below) as `{ role: "user"; content: "content"}`.
+
+### Steps
+
+Steps are **middleware-like** components that allow you to quickly create custom AgentExecutors without having to deal with protocol related boilerplate.
+
+Each step expects to be passed a `StepFunction` -
+
+**Parameters**:
+
+- `content`:`string`: The main message text.
+- `context`:`Context`: An object containing details about the agents runtime -
+  - `contextId`:`string`: A unique identifier representing the current invocation.
+  - `isCancelled()`:`boolean`: Returns a boolean indicating if a request was recieved to cancel the current [`Task`](https://a2a-protocol.org/latest/topics/life-of-a-task/#life-of-a-task).
+  - `State()`:`Task`: Returns a `Task` indicating the current state of the agents execution.
+- `command`: A [`MessageSendParams`](https://a2a-protocol.org/latest/specification/#711-messagesendparams-object) object that contains the entire A2A request.
+- `args`:`unknown[]`: An array of arguments passed from the previous step.
+
+Expects:
+
+- [`Part`](https://a2a-protocol.org/latest/topics/life-of-a-task/#life-of-a-task)/`Part[]`/`Promise<Part>`/`Promise<Part[]>`/`{ parts: Part[]; args:unknown[]; }`/`Promise<{ parts: Part[]; args:unknown[]; }>`
+
+**Example Format**:
+
+```typescript
+async ({ command, context, content, args }) => {
+  return {
+    parts: []
+    args: []
+  }
+};
+```
+
+#### `.text`
+
+A step that expects every returned `Part` to be a `string`.
+
+#### `.file`
+
+A step that expects every returned `Part` to be a `FilePart`:
+
+```typescript
+{
+  name?: string;
+  mimeType?: string;
+  bytes?: string; // Cannot contain uri if this field is included
+  uri?: string; // Cannot contain bytes if this field is included
+}
+```
+
+#### `.data`
+
+A step that expects every returned `Part` to be a `Record<string,unknown>`.
 
 ### `convertExecutor(executor)`
 
-Converts an `AgentExecutor`(from @a2a-js/sdk) into an `AgentEngine`.
+Converts an [`A2A.AgentExecutor`](https://a2a-protocol.org/latest/tutorials/python/4-agent-executor/#4-the-agent-executor)(from @a2a-js/sdk) into an easy to use [`AgentEngine`](https://github.com/the-artinet-project/artinet-sdk?tab=readme-ov-file#agentengine) for agent creation.
 
 ## License
 
@@ -111,5 +244,5 @@ Apache-2.0
 
 ## Resources
 
-- [GitHub Repository](https://github.com/the-artinet-project/artinet-sdk)
-- [Issue Tracker](https://github.com/the-artinet-project/artinet-sdk/issues)
+- [GitHub Repository](https://github.com/the-artinet-project/easy-a2a)
+- [Issue Tracker](https://github.com/the-artinet-project/easy-a2a/issues)

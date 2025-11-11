@@ -163,7 +163,6 @@ export function aiStep(
       );
       completion = await runner.finalChatCompletion();
     }
-
     return {
       parts: completion.choices[0].message.content ?? "",
       args: [completion],
@@ -227,6 +226,61 @@ export class OpenaiEngineBuilder<
       this.agents
     );
   }
+
+  /**
+   * Adds an AI step to the agent workflow that makes a request to the OpenAI-compatible API.
+   *
+   * This method creates a step that processes incoming messages using an LLM. The AI step
+   * automatically constructs the message context by combining conversation history, previous
+   * step arguments, and the incoming content based on the provided options.
+   *
+   * @param body - The AI configuration. Can be either:
+   *   - A string: Used as the system prompt. Defaults to using the "gpt-4o-mini" model.
+   *   - A full ChatCompletionCreateParamsNonStreaming object: Provides complete control over
+   *     the API request including model, messages, temperature, tools, etc.
+   *
+   * @param options - Optional configuration for the request and message context construction:
+   *   - `includeHistory` (default: true): When true, includes the task's conversation history
+   *     in the messages array sent to the LLM. Each history item is converted to a
+   *     role-based message (agent → assistant, user → user).
+   *   - `includeArgs` (default: true): When true, includes arguments passed from the previous
+   *     step as a system message containing the JSON-stringified args array.
+   *   - `includeContent` (default: true): When true, includes the incoming message content
+   *     as a user message in the request.
+   *   - Additional OpenAI.RequestOptions: Any standard request options like maxRetries, timeout, etc.
+   *
+   * @returns A new OpenaiEngineBuilder instance with the AI step added to the workflow chain.
+   *   The output arguments will contain the full ChatCompletion response object.
+   *
+   * @example
+   * // Simple system prompt (uses gpt-4o-mini by default)
+   * builder.ai("You are a helpful assistant that answers questions concisely.");
+   *
+   * @example
+   * // Full configuration with custom model and settings
+   * builder.ai({
+   *   model: "gpt-4o",
+   *   messages: [
+   *     { role: "system", content: "You are a helpful assistant." }
+   *   ],
+   *   temperature: 0.7,
+   *   max_tokens: 1000
+   * });
+   *
+   * @example
+   * // Disable history to create a stateless interaction
+   * builder.ai("Translate to French", { includeHistory: false });
+   *
+   * @example
+   * // Access completion details in the next step
+   * builder
+   *   .ai("Answer briefly")
+   *   .text(({ args }) => {
+   *     const completion = args[0] as ChatCompletion;
+   *     console.log(`Used ${completion.usage?.total_tokens} tokens`);
+   *     return completion.choices[0].message.content ?? "";
+   *   });
+   */
   ai(
     body: openai.ChatCompletionCreateParamsNonStreaming | string,
     options?: openai.RequestOptions & {
@@ -282,7 +336,7 @@ function createAgentArgs(
 
 /**
  * Creates an A2A agent builder from the given client and agents.
- *
+ * @deprecated Use `a2a` instead.
  * @param client - The client to use for the agent.
  * @param agents - The agents to use for the agent. This can be an AgentRelay, A2AService, A2AClient, or an AgentRelayConfig.
  * @returns The A2A agent builder.
