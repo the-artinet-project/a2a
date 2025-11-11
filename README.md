@@ -1,6 +1,6 @@
-# @artinet/a2a
+# easy-a2a
 
-An easy-to-use SDK for creating Agent2Agent (A2A) agents with OpenAI-compatible APIs.
+An easy-to-use SDK for creating Agent2Agent (A2A) agents with any OpenAI-compatible API.
 
 ## Overview
 
