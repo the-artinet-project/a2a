@@ -1,4 +1,3 @@
-import { AgentRelay, AgentRelayConfig, AgentType } from "@artinet/agent-relay";
 import OpenAI, { ClientOptions } from "openai";
 import { AIAgentBuilder, AgentArgs } from "./builder.js";
 
